@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BEATBOX — Sound Classifier</title>
+  <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Share+Tech+Mono&display=swap"
+    rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: #1e1e2e;
+      --accent: #00ff9d;
+      --accent2: #ff3c6e;
+      --accent3: #ffe600;
+      --text: #e8e8f0;
+      --muted: #4a4a6a;
+      --font-display: 'Black Ops One', cursive;
+      --font-mono: 'Share Tech Mono', monospace;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px,
+          rgba(0, 0, 0, 0.08) 2px, rgba(0, 0, 0, 0.08) 4px);
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0, 255, 157, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 157, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrapper {
+      position: relative;
+      z-index: 10;
+      width: min(560px, 95vw);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .header {
+      text-align: center;
+    }
+
+    .header h1 {
+      font-family: var(--font-display);
+      font-size: clamp(2.5rem, 8vw, 4rem);
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      text-shadow: 0 0 20px rgba(0, 255, 157, 0.5), 0 0 60px rgba(0, 255, 157, 0.2);
+      line-height: 1;
+    }
+
+    .header .subtitle {
+      font-size: 0.7rem;
+      letter-spacing: 0.3em;
+      color: var(--muted);
+      margin-top: 6px;
+      text-transform: uppercase;
+    }
+
+    .visualizer-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 16px;
+    }
+
+    .visualizer-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.25em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    #waveform-canvas {
+      width: 100%;
+      height: 60px;
+      display: block;
+    }
+
+    .detection-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 32px 24px;
+      text-align: center;
+      transition: border-color 0.1s, box-shadow 0.1s;
+    }
+
+    .detection-box.hit-Kick {
+      border-color: var(--accent);
+      box-shadow: 0 0 40px rgba(0, 255, 157, 0.3);
+    }
+
+    .detection-box.hit-Hihat {
+      border-color: var(--accent3);
+      box-shadow: 0 0 40px rgba(255, 230, 0, 0.3);
+    }
+
+    .detection-box.hit-Snare {
+      border-color: var(--accent2);
+      box-shadow: 0 0 40px rgba(255, 60, 110, 0.3);
+    }
+
+    .detection-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.3em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .detected-sound {
+      font-family: var(--font-display);
+      font-size: clamp(3rem, 15vw, 6rem);
+      line-height: 1;
+      color: var(--muted);
+      min-height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: 0.05em;
+      transition: color 0.1s, text-shadow 0.1s;
+    }
+
+    .detected-sound.active-Kick {
+      color: var(--accent);
+      text-shadow: 0 0 30px rgba(0, 255, 157, 0.7);
+    }
+
+    .detected-sound.active-Hihat {
+      color: var(--accent3);
+      text-shadow: 0 0 30px rgba(255, 230, 0, 0.7);
+    }
+
+    .detected-sound.active-Snare {
+      color: var(--accent2);
+      text-shadow: 0 0 30px rgba(255, 60, 110, 0.7);
+    }
+
+    .detected-name {
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      margin-top: 10px;
+      min-height: 1.2em;
+      text-transform: uppercase;
+    }
+
+    .bars-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 20px;
+    }
+
+    .bars-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.25em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 130px 1fr 44px;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .bar-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .bar-class {
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      color: var(--text);
+      text-transform: uppercase;
+    }
+
+    .bar-track {
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 2px;
+      height: 8px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.08s ease-out;
+      background: var(--muted);
+    }
+
+    .bar-fill.top-Kick {
+      background: var(--accent);
+      box-shadow: 0 0 8px rgba(0, 255, 157, 0.6);
+    }
+
+    .bar-fill.top-Hihat {
+      background: var(--accent3);
+      box-shadow: 0 0 8px rgba(255, 230, 0, 0.6);
+    }
+
+    .bar-fill.top-Snare {
+      background: var(--accent2);
+      box-shadow: 0 0 8px rgba(255, 60, 110, 0.6);
+    }
+
+    .bar-pct {
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bar-pct.top {
+      color: var(--text);
+    }
+
+    .btn-start {
+      width: 100%;
+      padding: 16px;
+      background: transparent;
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      letter-spacing: 0.2em;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+      text-transform: uppercase;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-start::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--accent);
+      transform: translateY(100%);
+      transition: transform 0.15s;
+    }
+
+    .btn-start:hover::before {
+      transform: translateY(0);
+    }
+
+    .btn-start:hover {
+      color: var(--bg);
+      box-shadow: 0 0 20px rgba(0, 255, 157, 0.4);
+    }
+
+    .btn-start span {
+      position: relative;
+      z-index: 1;
+    }
+
+    .btn-start.listening {
+      border-color: var(--accent2);
+      color: var(--accent2);
+    }
+
+    .btn-start.listening::before {
+      background: var(--accent2);
+    }
+
+    .btn-start.listening:hover {
+      color: var(--bg);
+      box-shadow: 0 0 20px rgba(255, 60, 110, 0.4);
+    }
+
+    .btn-start:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .status-dot.loading {
+      background: var(--accent3);
+      animation: blink 0.6s infinite;
+    }
+
+    .status-dot.live {
+      background: var(--accent);
+      animation: pulse-dot 1.5s infinite;
+    }
+
+    .status-dot.error {
+      background: var(--accent2);
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: 0.2
+      }
+    }
+
+    @keyframes pulse-dot {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(0, 255, 157, 0.6);
+      }
+
+      50% {
+        box-shadow: 0 0 0 4px rgba(0, 255, 157, 0);
+      }
+    }
+
+    .flash {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 50;
+      opacity: 0;
+      transition: opacity 0.05s;
+    }
+
+    /* ── GAME VIEW ── */
+    #game-view {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 200;
+    }
+
+    #game-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    #hud {
+      position: absolute;
+      top: 20px;
+      left: 24px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      color: var(--muted);
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    #hud .hud-sound {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      color: var(--accent);
+      text-shadow: 0 0 12px rgba(0,255,157,0.5);
+      line-height: 1;
+    }
+
+    #latency-ctrl {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      pointer-events: all;
+    }
+
+    #latency-ctrl button {
+      background: transparent;
+      border: 1px solid var(--muted);
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      width: 22px;
+      height: 22px;
+      cursor: pointer;
+      border-radius: 2px;
+      line-height: 1;
+    }
+
+    #latency-ctrl button:hover { border-color: var(--accent); color: var(--accent); }
+
+    #bpm-ctrl {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      pointer-events: all;
+    }
+
+    #bpm-ctrl button {
+      background: transparent;
+      border: 1px solid var(--muted);
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      width: 22px;
+      height: 22px;
+      cursor: pointer;
+      border-radius: 2px;
+      line-height: 1;
+    }
+
+    #bpm-ctrl button:hover { border-color: var(--accent); color: var(--accent); }
+
+    #top-right-btns {
+      position: absolute;
+      top: 20px;
+      right: 24px;
+      display: flex;
+      gap: 8px;
+      pointer-events: all;
+    }
+
+    #stop-btn, #restart-btn {
+      background: transparent;
+      border: 1px solid var(--muted);
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      padding: 6px 14px;
+      cursor: pointer;
+      text-transform: uppercase;
+      border-radius: 3px;
+    }
+
+    #stop-btn:hover {
+      border-color: var(--accent2);
+      color: var(--accent2);
+    }
+
+    #restart-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    #verdict {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-size: clamp(4rem, 15vw, 8rem);
+      letter-spacing: 0.1em;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.05s;
+    }
+
+    #verdict.show-ok {
+      opacity: 1;
+      color: var(--accent);
+      text-shadow: 0 0 40px rgba(0,255,157,0.7);
+    }
+
+    #verdict.show-fail {
+      opacity: 1;
+      color: var(--accent2);
+      text-shadow: 0 0 40px rgba(255,60,110,0.7);
+    }
+
+    #score-display {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    #score-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.3em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    #score-value {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      color: var(--accent);
+      letter-spacing: 0.1em;
+      line-height: 1;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="flash" id="flash"></div>
+
+  <!-- GAME VIEW -->
+  <div id="game-view">
+    <canvas id="game-canvas"></canvas>
+    <div id="score-display">
+      <div id="score-label">SCORE</div>
+      <div id="score-value">0</div>
+    </div>
+    <div id="hud">
+      <div class="hud-sound" id="hud-symbol">—</div>
+      <div id="hud-label">listening…</div>
+      <div id="latency-ctrl">
+        <button onclick="adjustLatency(-50)">−</button>
+        <span id="latency-display">400ms</span>
+        <button onclick="adjustLatency(+50)">+</button>
+      </div>
+      <div id="bpm-ctrl">
+        <button onclick="adjustBPM(-5)">−</button>
+        <span id="bpm-display">80 BPM</span>
+        <button onclick="adjustBPM(+5)">+</button>
+      </div>
+    </div>
+    <div id="top-right-btns">
+      <button id="restart-btn" onclick="restartGame()">▶ RESTART</button>
+      <button id="stop-btn" onclick="toggleListen()">■ Stop</button>
+    </div>
+    <div id="verdict"></div>
+  </div>
+
+  <div class="wrapper">
+
+    <div class="header">
+      <h1>BEATBOX</h1>
+      <div class="subtitle">Phase 0 — Sound Classifier</div>
+    </div>
+
+    <div class="visualizer-wrap">
+      <div class="visualizer-label">Mic Input</div>
+      <canvas id="waveform-canvas" width="520" height="60"></canvas>
+    </div>
+
+    <div class="detection-box" id="detection-box">
+      <div class="detection-label">Detected Sound</div>
+      <div class="detected-sound" id="detected-symbol">—</div>
+      <div class="detected-name" id="detected-name">waiting for input…</div>
+    </div>
+
+    <div class="bars-section">
+      <div class="bars-label">Confidence per class</div>
+      <div id="bar-container"></div>
+    </div>
+
+    <button class="btn-start" id="btn-start" onclick="toggleListen()">
+      <span id="btn-label">▶ Start Listening</span>
+    </button>
+
+    <div class="status-row">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Model not loaded — press Start</span>
+    </div>
+
+  </div>
+
+  <script>
+    // ─── CONFIG ───────────────────────────────────────────────────────────────────
+    const MODEL_URL = "http://localhost:8000/my_model/";
+    const DISPLAY_THRESHOLD = 0.75;
+
+    // Matches your metadata.json wordLabels exactly:
+    // ["Background Noise", "Hihat", "Kick", "Snare"]
+    const CLASS_MAP = {
+      "Background Noise": { symbol: "···", name: "Background Noise" },
+      "Hihat": { symbol: "t", name: "Hi-Hat" },
+      "Kick": { symbol: "B", name: "Kick Drum" },
+      "Snare": { symbol: "K", name: "Snare" },
+    };
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    let recognizer = null;
+    let isListening = false;
+    let animFrameId = null;
+    let barElements = [];
+    let lastDetection = { label: null, ts: 0 };
+    let lastScore = 0;
+
+    // ─── WAVEFORM ─────────────────────────────────────────────────────────────────
+    function startWaveform(stream) {
+      const actx = new AudioContext();
+      const src = actx.createMediaStreamSource(stream);
+      const analyser = actx.createAnalyser();
+      analyser.fftSize = 512;
+      src.connect(analyser);
+      const canvas = document.getElementById("waveform-canvas");
+      const ctx = canvas.getContext("2d");
+      const buf = new Uint8Array(analyser.frequencyBinCount);
+      function draw() {
+        animFrameId = requestAnimationFrame(draw);
+        analyser.getByteTimeDomainData(buf);
+        const W = canvas.width, H = canvas.height;
+        ctx.clearRect(0, 0, W, H);
+        ctx.strokeStyle = "rgba(0,255,157,0.6)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        const sliceW = W / buf.length;
+        let x = 0;
+        for (let i = 0; i < buf.length; i++) {
+          const y = (buf[i] / 128.0) * H / 2;
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          x += sliceW;
+        }
+        ctx.stroke();
+      }
+      draw();
+    }
+
+    // ─── BUILD BARS ───────────────────────────────────────────────────────────────
+    function buildBars(classLabels) {
+      const container = document.getElementById("bar-container");
+      container.innerHTML = "";
+      barElements = [];
+      classLabels.forEach(label => {
+        const mapped = CLASS_MAP[label] || { symbol: label, name: label };
+        const row = document.createElement("div");
+        row.className = "bar-row";
+        row.innerHTML = `
+      <div class="bar-class">${mapped.symbol} · ${mapped.name}</div>
+      <div class="bar-track"><div class="bar-fill" id="fill-${label}"></div></div>
+      <div class="bar-pct" id="pct-${label}">0%</div>`;
+        container.appendChild(row);
+        barElements.push(label);
+      });
+    }
+
+    // ─── UPDATE UI ────────────────────────────────────────────────────────────────
+    function updateUI(classLabels, scores) {
+      let topIdx = 0;
+      for (let i = 1; i < scores.length; i++) {
+        if (scores[i] > scores[topIdx]) topIdx = i;
+      }
+      const topLabel = classLabels[topIdx];
+      const topScore = scores[topIdx];
+      const isBackground = topLabel === "Background Noise";
+      const aboveThreshold = topScore >= DISPLAY_THRESHOLD && !isBackground;
+
+      // Big display
+      const symbolEl = document.getElementById("detected-symbol");
+      const nameEl = document.getElementById("detected-name");
+      const box = document.getElementById("detection-box");
+      symbolEl.className = "detected-sound";
+      box.className = "detection-box";
+
+      if (aboveThreshold) {
+        lastDetection = { label: topLabel, ts: Date.now() };
+        lastScore = Math.round(topScore * 100);
+        const mapped = CLASS_MAP[topLabel] || { symbol: topLabel, name: topLabel };
+        symbolEl.textContent = mapped.symbol;
+        symbolEl.classList.add(`active-${topLabel}`);
+        nameEl.textContent = `${mapped.name} · ${(topScore * 100).toFixed(0)}%`;
+        box.classList.add(`hit-${topLabel}`);
+
+        // Flash
+        const colors = { Kick: "rgba(0,255,157,0.07)", Hihat: "rgba(255,230,0,0.07)", Snare: "rgba(255,60,110,0.07)" };
+        const flash = document.getElementById("flash");
+        flash.style.background = colors[topLabel] || "transparent";
+        flash.style.opacity = "1";
+        setTimeout(() => { flash.style.opacity = "0"; }, 80);
+      } else {
+        symbolEl.textContent = "—";
+        nameEl.textContent = isListening ? "listening…" : "waiting for input…";
+      }
+
+      // Bars
+      classLabels.forEach((label, i) => {
+        const fill = document.getElementById(`fill-${label}`);
+        const pct = document.getElementById(`pct-${label}`);
+        if (!fill || !pct) return;
+        const val = scores[i] * 100;
+        fill.style.width = val.toFixed(1) + "%";
+        pct.textContent = val.toFixed(0) + "%";
+        // Clear all top classes first
+        fill.className = "bar-fill";
+        pct.className = "bar-pct";
+        if (i === topIdx && aboveThreshold) {
+          fill.classList.add(`top-${label}`);
+          pct.classList.add("top");
+        }
+      });
+    }
+
+    // ─── TOGGLE ───────────────────────────────────────────────────────────────────
+    async function toggleListen() {
+      if (isListening) {
+        recognizer.stopListening();
+        isListening = false;
+        if (animFrameId) cancelAnimationFrame(animFrameId);
+        stopGame();
+        setStatus("idle", "Stopped — press Start to resume");
+        document.getElementById("btn-start").className = "btn-start";
+        document.getElementById("btn-label").textContent = "▶ Start Listening";
+        document.getElementById("detected-symbol").textContent = "—";
+        document.getElementById("detected-name").textContent = "waiting for input…";
+        document.getElementById("detection-box").className = "detection-box";
+        return;
+      }
+
+      setStatus("loading", "Loading model…");
+      const btn = document.getElementById("btn-start");
+      btn.disabled = true;
+      document.getElementById("btn-label").textContent = "Loading…";
+
+      try {
+        if (!recognizer) {
+          recognizer = speechCommands.create(
+            "BROWSER_FFT", undefined,
+            MODEL_URL + "model.json",
+            MODEL_URL + "metadata.json"
+          );
+          await recognizer.ensureModelLoaded();
+        }
+
+        const classLabels = recognizer.wordLabels();
+        buildBars(classLabels);
+
+        // Waveform (best-effort)
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          startWaveform(stream);
+        } catch (e) { /* waveform is optional */ }
+
+        recognizer.listen(result => {
+          updateUI(classLabels, Array.from(result.scores));
+        }, {
+          includeSpectrogram: false,
+          probabilityThreshold: 0.0,   // show all bars; threshold handled in updateUI
+          invokeCallbackOnNoiseAndUnknown: true,
+          overlapFactor: 0.50,
+        });
+
+        isListening = true;
+        btn.disabled = false;
+        btn.className = "btn-start listening";
+        document.getElementById("btn-label").textContent = "■ Stop Listening";
+        setStatus("live", "Live — make some noise!");
+        startGame();
+
+      } catch (err) {
+        console.error(err);
+        setStatus("error", "Error: " + err.message);
+        btn.disabled = false;
+        document.getElementById("btn-label").textContent = "▶ Start Listening";
+      }
+    }
+
+    function setStatus(state, msg) {
+      document.getElementById("status-dot").className = `status-dot ${state}`;
+      document.getElementById("status-text").textContent = msg;
+    }
+
+    // ─── GAME ─────────────────────────────────────────────────────────────────────
+    const PATTERN     = ['Kick', 'Hihat', 'Snare', 'Hihat'];
+    const SOUND_COLOR = { Kick: '#00ff9d', Hihat: '#ffe600', Snare: '#9b5de5' };
+    const SOUND_SYM   = { Kick: 'B', Hihat: 't', Snare: 'K' };
+
+    const SCORE_TIERS = [
+      { label: 'PERFECT!',   maxPx: 12,  color: '#ffffff', points: 10 },
+      { label: 'EXCELLENT!', maxPx: 30,  color: '#00ff9d', points: 8  },
+      { label: 'GREAT!',     maxPx: 55,  color: '#ffe600', points: 6  },
+      { label: 'GOOD!',      maxPx: 80,  color: '#ffe600', points: 4  },
+      { label: 'NOT BAD!',   maxPx: 110, color: '#888899', points: 2  },
+    ];
+    const MISS_THRESHOLD = 110;
+
+    const game = {
+      boxes: [],
+      patternIdx: 0,
+      bpm: 80,
+      speed: 0,        // px/s — set by initGame() via spacing * bpm / 60
+      spacing: 280,    // px between box centres (overridden responsively in initGame)
+      totalScore: 0,
+      judgeX: 0,       // fixed judgment line x, set on init
+      trackY: 0,
+      boxSize: 70,     // overridden responsively in initGame
+      cssW: 0,         // CSS-pixel canvas width (set in initGame)
+      cssH: 0,         // CSS-pixel canvas height (set in initGame)
+      rafId: null,
+      lastTime: null,
+      lastSoundTs: 0,
+      verdict: null,       // { text, color, expiresAt }
+      latencyOffsetMs: 400, // compensates classifier delay — increase if you need to hit earlier
+    };
+
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    function spawnBox(x) {
+      const label = PATTERN[game.patternIdx % PATTERN.length];
+      game.patternIdx = (game.patternIdx + 1) % PATTERN.length;
+      game.boxes.push({ label, x, scored: false, missed: false });
+    }
+
+    function initGame() {
+      const canvas = document.getElementById('game-canvas');
+      const dpr  = window.devicePixelRatio || 1;
+      const cssW = window.innerWidth;
+      const cssH = window.innerHeight;
+      canvas.width  = cssW * dpr;
+      canvas.height = cssH * dpr;
+      canvas.getContext('2d').scale(dpr, dpr);
+      game.cssW = cssW;
+      game.cssH = cssH;
+      const mobile = cssW < 600;
+      game.boxSize = mobile ? 48 : 70;
+      game.spacing = mobile ? 150 : 240;
+      game.speed   = game.spacing * game.bpm / 60;
+      game.judgeX = Math.round(cssW * 0.28);
+      game.trackY = Math.round(cssH * 0.5);
+      game.boxes = [];
+      game.patternIdx = 0;
+      game.lastTime   = null;
+      game.lastSoundTs = 0;
+      game.verdict    = null;
+      game.totalScore = 0;
+      // Pre-fill boxes from right edge so the lane is populated immediately
+      for (let i = 0; i < 8; i++) {
+        spawnBox(cssW + game.boxSize / 2 + i * game.spacing);
+      }
+    }
+
+    function handleSoundInput(soundLabel) {
+      // Compensate for classifier latency: rewind box position to where it was
+      // when the user actually made the sound (latencyOffsetMs ago).
+      const latencyPx = (game.latencyOffsetMs / 1000) * game.speed;
+      let closest = null, minDist = Infinity;
+      for (const box of game.boxes) {
+        if (box.scored || box.missed) continue;
+        const compensatedX = box.x + latencyPx; // where the box was when sound was made
+        const d = Math.abs(compensatedX - game.judgeX);
+        if (d < minDist) { minDist = d; closest = box; }
+      }
+      if (!closest || minDist > MISS_THRESHOLD * 1.5) return;
+      if (closest.label !== soundLabel) return;
+      const tier = SCORE_TIERS.find(t => minDist <= t.maxPx);
+      if (tier) {
+        closest.scored = true;
+        game.totalScore += tier.points;
+        updateScoreDisplay();
+        game.verdict = { text: tier.label, color: tier.color, expiresAt: Date.now() + 750 };
+      }
+    }
+
+    function drawGame(canvas) {
+      const ctx = canvas.getContext('2d');
+      const W = game.cssW, H = game.cssH;
+      ctx.clearRect(0, 0, W, H);
+
+      // Dotted track line
+      ctx.strokeStyle = 'rgba(100,140,255,0.35)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 10]);
+      ctx.beginPath();
+      ctx.moveTo(0, game.trackY);
+      ctx.lineTo(W, game.trackY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Judgment line
+      ctx.strokeStyle = '#ff3c6e';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(game.judgeX, game.trackY - H * 0.4);
+      ctx.lineTo(game.judgeX, game.trackY + H * 0.4);
+      ctx.stroke();
+
+      // Sound boxes
+      const bs = game.boxSize;
+      for (const box of game.boxes) {
+        const col = SOUND_COLOR[box.label] || '#ffffff';
+        const sym = SOUND_SYM[box.label]   || box.label;
+        ctx.globalAlpha = (box.scored || box.missed) ? 0.18 : 1;
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(box.x - bs / 2, game.trackY - bs / 2, bs, bs);
+        ctx.fillStyle = col;
+        ctx.font = `bold ${Math.round(bs * 0.55)}px 'Share Tech Mono', monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(sym, box.x, game.trackY);
+        ctx.globalAlpha = 1;
+      }
+
+      // Verdict text rendered above the judgment line
+      if (game.verdict && Date.now() < game.verdict.expiresAt) {
+        const t = (game.verdict.expiresAt - Date.now()) / 750;
+        ctx.globalAlpha = Math.min(1, t * 4);
+        ctx.fillStyle = game.verdict.color;
+        const verdictSize = W < 600
+          ? clamp(Math.round(W * 0.09), 20, 36)
+          : clamp(Math.round(H * 0.06), 28, 60);
+        ctx.font = `bold ${verdictSize}px 'Black Ops One', cursive`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(game.verdict.text, game.judgeX, game.trackY - bs * 0.75);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    function adjustLatency(delta) {
+      game.latencyOffsetMs = Math.max(0, Math.min(800, game.latencyOffsetMs + delta));
+      document.getElementById('latency-display').textContent = game.latencyOffsetMs + 'ms';
+    }
+
+    function adjustBPM(delta) {
+      game.bpm = Math.max(40, Math.min(200, game.bpm + delta));
+      game.speed = game.spacing * game.bpm / 60;
+      document.getElementById('bpm-display').textContent = game.bpm + ' BPM';
+    }
+
+    function updateScoreDisplay() {
+      document.getElementById('score-value').textContent = game.totalScore;
+    }
+
+    function updateHUD() {
+      const age   = Date.now() - lastDetection.ts;
+      const fresh = lastDetection.label && age < 600;
+      document.getElementById('hud-symbol').textContent = fresh
+        ? (CLASS_MAP[lastDetection.label]?.symbol ?? '—') : '—';
+      document.getElementById('hud-label').textContent = fresh
+        ? `${CLASS_MAP[lastDetection.label]?.name ?? lastDetection.label} · ${lastScore}%`
+        : 'listening…';
+    }
+
+    function gameLoop(ts) {
+      if (!isListening) return;
+      game.rafId = requestAnimationFrame(gameLoop);
+
+      if (game.lastTime === null) game.lastTime = ts;
+      const dt = Math.min((ts - game.lastTime) / 1000, 0.1);
+      game.lastTime = ts;
+
+      const canvas = document.getElementById('game-canvas');
+
+      // Move all boxes left
+      for (const box of game.boxes) box.x -= game.speed * dt;
+
+      // Consume new sound detections
+      if (lastDetection.ts > game.lastSoundTs) {
+        game.lastSoundTs = lastDetection.ts;
+        handleSoundInput(lastDetection.label);
+      }
+
+      // Mark missed boxes — threshold widens by latencyPx so we don't flag too early
+      const latencyPx = (game.latencyOffsetMs / 1000) * game.speed;
+      for (const box of game.boxes) {
+        if (!box.scored && !box.missed && box.x < game.judgeX - MISS_THRESHOLD - latencyPx) {
+          box.missed = true;
+          game.verdict = { text: 'MISSED!', color: '#ff3c6e', expiresAt: Date.now() + 750 };
+        }
+      }
+
+      // Remove boxes far off-screen left
+      while (game.boxes.length && game.boxes[0].x < -game.boxSize * 2) game.boxes.shift();
+
+      // Spawn from the right to keep the lane full
+      const rightmost = game.boxes.length ? game.boxes[game.boxes.length - 1].x : 0;
+      if (rightmost < game.cssW + game.boxSize / 2) spawnBox(rightmost + game.spacing);
+
+      drawGame(canvas);
+      updateHUD();
+    }
+
+    function startGame() {
+      initGame();
+      document.getElementById('game-view').style.display = 'block';
+      document.querySelector('.wrapper').style.display = 'none';
+      game.rafId = requestAnimationFrame(gameLoop);
+    }
+
+    function stopGame() {
+      if (game.rafId) { cancelAnimationFrame(game.rafId); game.rafId = null; }
+      document.getElementById('game-view').style.display = 'none';
+      document.querySelector('.wrapper').style.display = 'flex';
+    }
+
+    function restartGame() {
+      if (game.rafId) { cancelAnimationFrame(game.rafId); game.rafId = null; }
+      lastDetection = { label: null, ts: 0 };
+      lastScore = 0;
+      initGame();
+      updateScoreDisplay();
+      game.rafId = requestAnimationFrame(gameLoop);
+    }
+  </script>
+</body>
+
+</html>
