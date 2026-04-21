@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Beatbox Data Collector</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #111;
+      color: #eee;
+      padding: 20px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 1.4rem; margin-bottom: 20px; }
+
+    button {
+      width: 100%;
+      padding: 18px;
+      font-size: 1.1rem;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-bottom: 14px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #start-btn { background: #27ae60; color: #fff; }
+    #start-btn.active { background: #c0392b; }
+
+    #controls { display: none; }
+
+    .section-label {
+      font-size: 0.8rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .label-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .label-btn {
+      background: #2a2a2a;
+      color: #ccc;
+      padding: 20px 10px;
+      border-radius: 10px;
+      border: 3px solid transparent;
+      font-size: 1rem;
+    }
+    .label-btn.selected {
+      border-color: #2980b9;
+      background: #1a3a55;
+      color: #fff;
+    }
+
+    .sensitivity-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .sensitivity-row label { font-size: 0.9rem; color: #aaa; white-space: nowrap; }
+    input[type=range] { flex: 1; accent-color: #2980b9; }
+    #threshold-val { font-size: 0.9rem; width: 36px; text-align: right; color: #eee; }
+
+    #volume-bar-wrap {
+      background: #222;
+      border-radius: 6px;
+      height: 18px;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+    #volume-bar {
+      height: 100%;
+      width: 0%;
+      background: #27ae60;
+      border-radius: 6px;
+    }
+
+    #status {
+      background: #1a1a1a;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 0.95rem;
+      min-height: 46px;
+      margin-bottom: 14px;
+      color: #ccc;
+    }
+
+    .counts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .count-cell {
+      background: #1a1a1a;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+      font-size: 0.85rem;
+      color: #888;
+    }
+    .count-cell .num {
+      display: block;
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #2980b9;
+      line-height: 1.2;
+    }
+
+    .sample-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .sample-actions button { margin-bottom: 0; }
+    #play-last-btn { background: #7d3c98; color: #fff; }
+    #play-last-btn:disabled { background: #333; color: #555; cursor: not-allowed; }
+    #discard-last-btn { background: #922b21; color: #fff; }
+    #discard-last-btn:disabled { background: #333; color: #555; cursor: not-allowed; }
+    #capture-bg-btn { background: #1e8449; color: #fff; }
+    #capture-bg-btn:disabled { background: #333; color: #555; cursor: not-allowed; }
+    #export-btn { background: #2471a3; color: #fff; }
+    #export-btn:disabled { background: #333; color: #555; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <h1>Beatbox Data Collector</h1>
+
+  <button id="start-btn">▶ Start Module</button>
+
+  <div id="controls">
+    <p class="section-label">Select class</p>
+    <div class="label-grid">
+      <button class="label-btn selected" data-label="Kick">Kick</button>
+      <button class="label-btn" data-label="Hihat">Hi-Hat</button>
+      <button class="label-btn" data-label="Snare">Snare</button>
+      <button class="label-btn" data-label="Background">Background</button>
+    </div>
+
+    <div class="sensitivity-row">
+      <label>Sensitivity</label>
+      <input type="range" id="threshold-slider" min="3" max="60" value="15">
+      <span id="threshold-val">15</span>
+    </div>
+
+    <div id="volume-bar-wrap">
+      <div id="volume-bar"></div>
+    </div>
+
+    <div id="status">Ready — select a class, then make sounds.</div>
+
+    <button id="capture-bg-btn" style="display:none" disabled>⏺ Capture Background</button>
+
+    <p class="section-label">Samples collected</p>
+    <div class="counts-grid">
+      <div class="count-cell">Kick<span class="num" id="count-Kick">0</span></div>
+      <div class="count-cell">Hi-Hat<span class="num" id="count-Hihat">0</span></div>
+      <div class="count-cell">Snare<span class="num" id="count-Snare">0</span></div>
+      <div class="count-cell">Background<span class="num" id="count-Background">0</span></div>
+    </div>
+
+    <div class="sample-actions">
+      <button id="play-last-btn" disabled>▷ Play Last</button>
+      <button id="discard-last-btn" disabled>✕ Discard Last</button>
+    </div>
+    <button id="export-btn" disabled>⬆ Export ZIP</button>
+  </div>
+
+  <script>
+    const SLICE_MS = 150;
+    const BG_CAPTURE_MS = 2000;
+    const COOLDOWN_MS = 350;
+
+    let audioCtx = null;
+    let scriptProcessor = null;
+    let micStream = null;
+    let isListening = false;
+    let selectedLabel = 'Kick';
+
+    let isRecording = false;
+    let onsetCooldown = false;
+    let recordingBuffer = [];
+
+    let samples = [];
+    let counts = { Kick: 0, Hihat: 0, Snare: 0, Background: 0 };
+    let lastWavBlob = null;
+
+    const startBtn = document.getElementById('start-btn');
+    const controls = document.getElementById('controls');
+    const statusEl = document.getElementById('status');
+    const volumeBar = document.getElementById('volume-bar');
+    const thresholdSlider = document.getElementById('threshold-slider');
+    const thresholdValEl = document.getElementById('threshold-val');
+    const playLastBtn = document.getElementById('play-last-btn');
+    const discardLastBtn = document.getElementById('discard-last-btn');
+    const exportBtn = document.getElementById('export-btn');
+    const captureBgBtn = document.getElementById('capture-bg-btn');
+
+    thresholdSlider.addEventListener('input', () => {
+      thresholdValEl.textContent = thresholdSlider.value;
+    });
+
+    function updateModeUI() {
+      const isBg = selectedLabel === 'Background';
+      captureBgBtn.style.display = isBg ? 'block' : 'none';
+      captureBgBtn.disabled = !isListening;
+      document.querySelector('.sensitivity-row').style.display = isBg ? 'none' : 'flex';
+      if (isBg) setStatus('Tap ⏺ Capture Background to grab a 150ms slice.');
+      else setStatus(isListening ? 'Listening… make a sound!' : 'Ready — select a class, then make sounds.');
+    }
+
+    document.querySelectorAll('.label-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.label-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedLabel = btn.dataset.label;
+        updateModeUI();
+      });
+    });
+
+    startBtn.addEventListener('click', async () => {
+      if (!isListening) await startListening();
+      else stopListening();
+    });
+
+    async function startListening() {
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const source = audioCtx.createMediaStreamSource(micStream);
+
+        scriptProcessor = audioCtx.createScriptProcessor(512, 1, 1);
+        source.connect(scriptProcessor);
+        scriptProcessor.connect(audioCtx.destination);
+
+        const sampleRate = audioCtx.sampleRate;
+        const sliceSamples = Math.floor(sampleRate * SLICE_MS / 1000);
+
+        scriptProcessor.onaudioprocess = (event) => {
+          const input = event.inputBuffer.getChannelData(0);
+
+          // RMS for volume display
+          let sum = 0;
+          for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
+          const rms = Math.sqrt(sum / input.length);
+          const pct = Math.min(100, rms * 600);
+          volumeBar.style.width = pct + '%';
+          const threshold = parseFloat(thresholdSlider.value) / 600;
+          volumeBar.style.background = rms > threshold ? '#e74c3c' : '#27ae60';
+
+          // Accumulate if recording
+          if (isRecording) {
+            recordingBuffer.push(new Float32Array(input));
+          }
+
+          // Onset detection — disabled for Background class
+          if (selectedLabel === 'Background') return;
+          if (!onsetCooldown && !isRecording && rms > threshold) {
+            onsetCooldown = true;
+            isRecording = true;
+            recordingBuffer = [new Float32Array(input)];
+            const capturedLabel = selectedLabel;
+
+            setTimeout(() => {
+              if (!audioCtx) return; // user stopped
+              isRecording = false;
+
+              const totalLen = recordingBuffer.reduce((a, c) => a + c.length, 0);
+              const merged = new Float32Array(totalLen);
+              let off = 0;
+              for (const chunk of recordingBuffer) { merged.set(chunk, off); off += chunk.length; }
+
+              const slice = merged.slice(0, sliceSamples);
+              const wav = encodeWAV(slice, sampleRate);
+
+              samples.push({ label: capturedLabel, wav });
+              counts[capturedLabel]++;
+              document.getElementById('count-' + capturedLabel).textContent = counts[capturedLabel];
+
+              lastWavBlob = new Blob([wav], { type: 'audio/wav' });
+              playLastBtn.disabled = false;
+              discardLastBtn.disabled = false;
+              exportBtn.disabled = false;
+              setStatus(`✓ ${capturedLabel} #${counts[capturedLabel]} captured (${SLICE_MS}ms)`);
+
+              setTimeout(() => { onsetCooldown = false; }, COOLDOWN_MS);
+            }, SLICE_MS);
+          }
+        };
+
+        isListening = true;
+        startBtn.textContent = '■ Stop';
+        startBtn.classList.add('active');
+        controls.style.display = 'block';
+        updateModeUI();
+      } catch (err) {
+        setStatus('Mic error: ' + err.message);
+      }
+    }
+
+    function stopListening() {
+      isRecording = false;
+      onsetCooldown = false;
+      if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor = null; }
+      if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+      if (audioCtx) { audioCtx.close(); audioCtx = null; }
+      isListening = false;
+      volumeBar.style.width = '0%';
+      startBtn.textContent = '▶ Start Module';
+      startBtn.classList.remove('active');
+      setStatus('Stopped.');
+    }
+
+    function setStatus(msg) { statusEl.textContent = msg; }
+
+    discardLastBtn.addEventListener('click', () => {
+      if (samples.length === 0) return;
+      const removed = samples.pop();
+      counts[removed.label]--;
+      document.getElementById('count-' + removed.label).textContent = counts[removed.label];
+
+      if (samples.length > 0) {
+        const prev = samples[samples.length - 1];
+        lastWavBlob = new Blob([prev.wav], { type: 'audio/wav' });
+        setStatus(`✕ Discarded ${removed.label} sample. Now showing previous.`);
+      } else {
+        lastWavBlob = null;
+        playLastBtn.disabled = true;
+        discardLastBtn.disabled = true;
+        exportBtn.disabled = true;
+        setStatus('All samples discarded.');
+      }
+    });
+
+    captureBgBtn.addEventListener('click', () => {
+      if (!audioCtx || isRecording) return;
+      isRecording = true;
+      recordingBuffer = [];
+      const sampleRate = audioCtx.sampleRate;
+      const sliceSamples = Math.floor(sampleRate * SLICE_MS / 1000);
+      captureBgBtn.disabled = true;
+      setStatus(`Recording background… (${BG_CAPTURE_MS / 1000}s)`);
+
+      setTimeout(() => {
+        if (!audioCtx) return;
+        isRecording = false;
+        captureBgBtn.disabled = false;
+
+        const totalLen = recordingBuffer.reduce((a, c) => a + c.length, 0);
+        const merged = new Float32Array(totalLen);
+        let off = 0;
+        for (const chunk of recordingBuffer) { merged.set(chunk, off); off += chunk.length; }
+
+        // Split into 150ms chunks
+        const numChunks = Math.floor(merged.length / sliceSamples);
+        let lastWav = null;
+        for (let i = 0; i < numChunks; i++) {
+          const slice = merged.slice(i * sliceSamples, (i + 1) * sliceSamples);
+          const wav = encodeWAV(slice, sampleRate);
+          samples.push({ label: 'Background', wav });
+          counts['Background']++;
+          lastWav = wav;
+        }
+
+        document.getElementById('count-Background').textContent = counts['Background'];
+        lastWavBlob = new Blob([lastWav], { type: 'audio/wav' });
+        playLastBtn.disabled = false;
+        discardLastBtn.disabled = false;
+        exportBtn.disabled = false;
+        setStatus(`✓ Background: +${numChunks} samples (total ${counts['Background']})`);
+      }, BG_CAPTURE_MS);
+    });
+
+    playLastBtn.addEventListener('click', () => {
+      if (!lastWavBlob) return;
+      const url = URL.createObjectURL(lastWavBlob);
+      const audio = new Audio(url);
+      audio.onended = () => URL.revokeObjectURL(url);
+      audio.play();
+    });
+
+    exportBtn.addEventListener('click', async () => {
+      if (samples.length === 0) { setStatus('No samples collected yet.'); return; }
+      setStatus('Building ZIP…');
+      exportBtn.disabled = true;
+
+      const zip = new JSZip();
+      const perClass = {};
+      for (const { label, wav } of samples) {
+        perClass[label] = (perClass[label] || 0) + 1;
+        zip.file(`${label}/${label}_${String(perClass[label]).padStart(4, '0')}.wav`, wav);
+      }
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      exportBtn.disabled = false;
+
+      if (navigator.share) {
+        try {
+          const file = new File([blob], 'beatbox_samples.zip', { type: 'application/zip' });
+          await navigator.share({ files: [file], title: 'Beatbox Samples' });
+          setStatus(`Shared! ${samples.length} samples.`);
+          return;
+        } catch {
+          // fall through to download
+        }
+      }
+      downloadBlob(blob);
+    });
+
+    function downloadBlob(blob) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'beatbox_samples.zip';
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus(`Downloaded beatbox_samples.zip (${samples.length} samples)`);
+    }
+
+    function encodeWAV(pcm, sampleRate) {
+      const numChannels = 1;
+      const bitsPerSample = 16;
+      const dataLen = pcm.length * 2;
+      const buf = new ArrayBuffer(44 + dataLen);
+      const v = new DataView(buf);
+      const str = (off, s) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); };
+
+      str(0, 'RIFF');
+      v.setUint32(4, 36 + dataLen, true);
+      str(8, 'WAVE');
+      str(12, 'fmt ');
+      v.setUint32(16, 16, true);
+      v.setUint16(20, 1, true);                                      // PCM
+      v.setUint16(22, numChannels, true);
+      v.setUint32(24, sampleRate, true);
+      v.setUint32(28, sampleRate * numChannels * bitsPerSample / 8, true);
+      v.setUint16(32, numChannels * bitsPerSample / 8, true);
+      v.setUint16(34, bitsPerSample, true);
+      str(36, 'data');
+      v.setUint32(40, dataLen, true);
+
+      let off = 44;
+      for (let i = 0; i < pcm.length; i++) {
+        const s = Math.max(-1, Math.min(1, pcm[i]));
+        v.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        off += 2;
+      }
+      return new Uint8Array(buf);
+    }
+  </script>
+</body>
+</html>
