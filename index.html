@@ -617,7 +617,7 @@
 
   <script>
     // ─── CONFIG ───────────────────────────────────────────────────────────────────
-    const MODEL_URL = "./my_model/";
+    const MODEL_URL = new URL("./my_model/", window.location.href).href;
     const DISPLAY_THRESHOLD = 0.75;
 
     // Matches your metadata.json wordLabels exactly:
