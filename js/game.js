@@ -355,7 +355,13 @@ function gameLoop(ts) {
           game.verdict = { text: 'MISSED!', color: '#ff3c6e', expiresAt: Date.now() + 750 };
         }
       }
-      while (game.boxes.length && game.boxes[0].y > game.cssH + game.boxSize * 2) game.boxes.shift();
+      while (game.boxes.length && game.boxes[0].y > game.cssH + game.boxSize * 2) {
+        const box = game.boxes.shift();
+        if (!box.scored && !box.missed) {
+          if (game.stats[box.label]) game.stats[box.label].miss++;
+          game.verdict = { text: 'MISSED!', color: '#ff3c6e', expiresAt: Date.now() + 750 };
+        }
+      }
     } else {
       for (const box of game.boxes) {
         if (!box.scored && !box.missed && box.x < game.judgeX - MISS_THRESHOLD - latencyPx) {
@@ -364,7 +370,13 @@ function gameLoop(ts) {
           game.verdict = { text: 'MISSED!', color: '#ff3c6e', expiresAt: Date.now() + 750 };
         }
       }
-      while (game.boxes.length && game.boxes[0].x < -game.boxSize * 2) game.boxes.shift();
+      while (game.boxes.length && game.boxes[0].x < -game.boxSize * 2) {
+        const box = game.boxes.shift();
+        if (!box.scored && !box.missed) {
+          if (game.stats[box.label]) game.stats[box.label].miss++;
+          game.verdict = { text: 'MISSED!', color: '#ff3c6e', expiresAt: Date.now() + 750 };
+        }
+      }
     }
 
     if (game.mode === 'infinite' || game.timeRemaining > 0) {
