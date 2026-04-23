@@ -4,9 +4,9 @@ export const CLASS_LABELS = ['Background', 'Hihat', 'Kick', 'Snare'];
 
 export const CLASS_MAP = {
   'Background': { symbol: '···', name: 'Background' },
-  'Hihat':      { symbol: 't',   name: 'Hi-Hat' },
-  'Kick':       { symbol: 'B',   name: 'Kick Drum' },
-  'Snare':      { symbol: 'K',   name: 'Snare' },
+  'Hihat': { symbol: 't', name: 'Hi-Hat' },
+  'Kick': { symbol: 'B', name: 'Kick Drum' },
+  'Snare': { symbol: 'K', name: 'Snare' },
 };
 
 // Preprocessing constants — must match train.ipynb exactly
@@ -15,8 +15,8 @@ export const N_FFT = 1024;
 export const HOP = 256;
 export const N_MELS = 64;
 export const N_SAMPLES = Math.round(SR * 0.2);            // 8820 — 200ms
-export const N_FRAMES  = 1 + Math.floor(N_SAMPLES / HOP); // 35
-export const DB_FLOOR  = -50.0;
+export const N_FRAMES = 1 + Math.floor(N_SAMPLES / HOP); // 35
+export const DB_FLOOR = -50.0;
 
 // Hann window for STFT, precomputed
 export const HANN_WIN = (() => {
@@ -48,8 +48,8 @@ export const MEL_FB = (() => {
     for (let k = 0; k < nBins; k++) {
       const f = k * SR / N_FFT;
       let w = 0;
-      if (f >= lo && f <= mid)       w = (f - lo) / (mid - lo);
-      else if (f > mid && f <= hi)   w = (hi - f) / (hi - mid);
+      if (f >= lo && f <= mid) w = (f - lo) / (mid - lo);
+      else if (f > mid && f <= hi) w = (hi - f) / (hi - mid);
       fb[m * nBins + k] = norm * w;
     }
   }
