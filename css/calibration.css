@@ -1,0 +1,296 @@
+/* ── Calibration view wrapper ── */
+#calibration-view {
+  position: relative;
+  z-index: 10;
+  width: min(560px, 95vw);
+  flex-direction: column;
+  gap: 24px;
+  margin: auto 0;
+  padding: 36px 0;
+}
+
+/* ── Header ── */
+.cal-header {
+  text-align: center;
+}
+
+.cal-header h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 7vw, 3.2rem);
+  letter-spacing: 0.1em;
+  color: var(--accent3);
+  text-shadow: 0 0 20px rgba(255, 230, 0, 0.4);
+  line-height: 1;
+}
+
+.cal-subtitle {
+  font-size: 0.65rem;
+  letter-spacing: 0.3em;
+  color: var(--muted);
+  margin-top: 6px;
+  text-transform: uppercase;
+}
+
+/* ── Prompt card ── */
+.cal-prompt-card {
+  background: var(--surface);
+  border: 1px solid #333355;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cal-prompt-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.cal-current-class {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  color: var(--accent3);
+  letter-spacing: 0.1em;
+}
+
+.cal-technique-hint {
+  font-size: 0.72rem;
+  color: var(--text);
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+}
+
+/* ── Class cards grid ── */
+.cal-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.cal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 0.15s;
+}
+
+.cal-card-symbol {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--muted);
+  transition: color 0.15s;
+}
+
+.cal-card-name {
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.cal-card-count {
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+/* Active class card */
+.cal-card.cal-card-active {
+  border-color: var(--accent3);
+}
+
+.cal-card.cal-card-active .cal-card-symbol {
+  color: var(--accent3);
+  text-shadow: 0 0 12px rgba(255, 230, 0, 0.5);
+}
+
+.cal-card.cal-card-active .cal-card-name,
+.cal-card.cal-card-active .cal-card-count {
+  color: var(--text);
+}
+
+/* Partial progress (>= SOFT_FLOOR) */
+.cal-card.cal-card-partial {
+  border-color: #4a4a00;
+}
+
+.cal-card.cal-card-partial .cal-card-symbol {
+  color: #aaaa00;
+}
+
+/* Full (>= SAMPLES_PER_CLASS) */
+.cal-card.cal-card-full {
+  border-color: var(--accent);
+}
+
+.cal-card.cal-card-full .cal-card-symbol {
+  color: var(--accent);
+  text-shadow: 0 0 12px rgba(0, 255, 157, 0.4);
+}
+
+.cal-card.cal-card-full .cal-card-name,
+.cal-card.cal-card-full .cal-card-count {
+  color: var(--accent);
+}
+
+/* ── Action buttons ── */
+.cal-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cal-footer-actions {
+  display: flex;
+  gap: 12px;
+}
+
+#cal-record-bg-btn {
+  background: transparent;
+  border: 2px solid var(--accent2);
+  color: var(--accent2);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 10px 20px;
+  cursor: pointer;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+#cal-record-bg-btn:hover {
+  background: var(--accent2);
+  color: #000;
+}
+
+#cal-discard-btn {
+  background: transparent;
+  border: 1px solid #ff3c6e;
+  color: #ff3c6e;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 10px 20px;
+  cursor: pointer;
+  letter-spacing: 0.12em;
+}
+
+#cal-discard-btn:hover {
+  background: #ff3c6e;
+  color: #000;
+}
+
+#cal-advance-btn {
+  background: transparent;
+  border: 1px solid var(--accent3);
+  color: var(--accent3);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 10px 20px;
+  cursor: pointer;
+  letter-spacing: 0.12em;
+}
+
+#cal-advance-btn:hover {
+  background: var(--accent3);
+  color: #000;
+}
+
+#cal-done-btn {
+  background: transparent;
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  padding: 12px 24px;
+  cursor: pointer;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+#cal-done-btn:hover {
+  background: var(--accent);
+  color: #000;
+}
+
+#cal-cancel-btn {
+  background: transparent;
+  border: 1px solid var(--muted);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 8px 16px;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+}
+
+#cal-cancel-btn:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+/* ── Home page gating ── */
+.btn-calibrate {
+  width: 100%;
+  background: transparent;
+  border: 2px solid var(--accent3);
+  color: var(--accent3);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  padding: 18px;
+  cursor: pointer;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-calibrate:hover {
+  background: var(--accent3);
+  color: #000;
+}
+
+.btn-recalibrate {
+  background: transparent;
+  border: 1px solid var(--muted);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  padding: 6px 14px;
+  cursor: pointer;
+  letter-spacing: 0.12em;
+  align-self: flex-start;
+}
+
+.btn-recalibrate:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+#cal-gate-hint {
+  text-align: center;
+}
+
+.cal-gate-text {
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  color: var(--accent2);
+  text-transform: uppercase;
+}
+
+/* Disabled mode buttons when uncalibrated */
+.btn-mode:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ── Mobile: 2-col grid for small screens ── */
+@media (max-width: 400px) {
+  .cal-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
