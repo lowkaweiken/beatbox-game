@@ -1,0 +1,16 @@
+export const state = {
+  model: null,
+  embeddingModel: null,
+  centroids: null,
+  audioCtx: null,
+  workletNode: null,
+  classifying: false,
+  isListening: false,
+  isTesting: false,
+  calibrating: false,
+  animFrameId: null,
+  barElements: [],
+  lastDetection: { label: null, ts: 0, onsetTs: 0 },
+  lastScore: 0,
+  onsetDateNow: 0,
+};
