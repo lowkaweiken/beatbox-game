@@ -1,4 +1,4 @@
-import { CALIBRATION_CLASSES, CALIBRATION_SAMPLES_PER_CLASS, CALIBRATION_SOFT_FLOOR, N_SAMPLES } from './config.js';
+import { CALIBRATION_CLASSES, CALIBRATION_SAMPLES_PER_CLASS, CALIBRATION_SOFT_FLOOR, N_SAMPLES, EMBEDDING_DIM } from './config.js';
 import { state } from './state.js';
 import { computeEmbedding } from './embedding.js';
 import { saveCentroids, clearAll } from './storage.js';
@@ -68,16 +68,16 @@ export async function finishCalibration() {
     const samples = calState.samplesByClass[cls] || [];
     if (samples.length === 0) throw new Error(`No samples for class: ${cls}`);
 
-    const mean = new Float32Array(64);
+    const mean = new Float32Array(EMBEDDING_DIM);
     for (const emb of samples) {
-      for (let i = 0; i < 64; i++) mean[i] += emb[i];
+      for (let i = 0; i < EMBEDDING_DIM; i++) mean[i] += emb[i];
     }
-    for (let i = 0; i < 64; i++) mean[i] /= samples.length;
+    for (let i = 0; i < EMBEDDING_DIM; i++) mean[i] /= samples.length;
 
     let norm = 0;
-    for (let i = 0; i < 64; i++) norm += mean[i] * mean[i];
+    for (let i = 0; i < EMBEDDING_DIM; i++) norm += mean[i] * mean[i];
     norm = Math.sqrt(norm) || 1e-8;
-    for (let i = 0; i < 64; i++) mean[i] /= norm;
+    for (let i = 0; i < EMBEDDING_DIM; i++) mean[i] /= norm;
 
     centroids[cls] = mean;
   }
