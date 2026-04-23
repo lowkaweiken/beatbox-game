@@ -1,0 +1,94 @@
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --border: #1e1e2e;
+  --accent: #00ff9d;
+  --accent2: #ff3c6e;
+  --accent3: #ffe600;
+  --text: #e8e8f0;
+  --muted: #4a4a6a;
+  --font-display: 'Black Ops One', cursive;
+  --font-mono: 'Share Tech Mono', monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+  overflow-y: auto;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px,
+      rgba(0, 0, 0, 0.08) 2px, rgba(0, 0, 0, 0.08) 4px);
+  pointer-events: none;
+  z-index: 100;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 255, 157, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 157, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrapper {
+  position: relative;
+  z-index: 10;
+  width: min(560px, 95vw);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin: auto 0;
+  padding: 36px 0;
+}
+
+.header {
+  text-align: center;
+}
+
+.header h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 8vw, 4rem);
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  text-shadow: 0 0 20px rgba(0, 255, 157, 0.5), 0 0 60px rgba(0, 255, 157, 0.2);
+  line-height: 1;
+}
+
+.header .subtitle {
+  font-size: 0.7rem;
+  letter-spacing: 0.3em;
+  color: var(--muted);
+  margin-top: 6px;
+  text-transform: uppercase;
+}
+
+.flash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0;
+  transition: opacity 0.05s;
+}

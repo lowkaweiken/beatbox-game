@@ -1,0 +1,145 @@
+@media (max-height: 820px) {
+  .wrapper { gap: 16px; padding: 24px 0; }
+  .header h1 { font-size: clamp(2rem, 6vw, 3rem); }
+  .header .subtitle { margin-top: 4px; }
+  .visualizer-wrap { padding: 10px 16px; }
+  #waveform-canvas { height: 44px; }
+  .detection-box { padding: 18px 24px; }
+  .detected-sound { min-height: 54px; font-size: clamp(2.2rem, 10vw, 4.5rem); }
+  .bars-section { padding: 12px 20px; }
+  .bar-row { margin-bottom: 7px; }
+  .btn-mode { padding: 14px 12px; gap: 4px; }
+  .btn-mode-icon { font-size: 1.4rem; }
+  .btn-mode-label { font-size: 0.9rem; }
+}
+
+@media (max-height: 650px) {
+  .wrapper { gap: 10px; padding: 16px 0; }
+  .detection-box { padding: 12px 24px; }
+  .detected-sound { min-height: 40px; font-size: clamp(1.8rem, 8vw, 3.5rem); }
+  #waveform-canvas { height: 36px; }
+  .bars-section { padding: 10px 20px; }
+  .bar-row { margin-bottom: 5px; }
+}
+
+@media (max-width: 599px) {
+  #hud {
+    top: 10px;
+    left: 10px;
+    font-size: 0.6rem;
+  }
+
+  #hud .hud-sound {
+    font-size: 1.1rem;
+  }
+
+  .ctrl-label {
+    width: 46px;
+    font-size: 0.46rem;
+  }
+
+  #latency-ctrl,
+  #bpm-ctrl,
+  #hitbox-ctrl,
+  #cooldown-ctrl {
+    margin-top: 5px;
+    gap: 4px;
+  }
+
+  #latency-ctrl button,
+  #bpm-ctrl button,
+  #hitbox-ctrl button,
+  #cooldown-ctrl button {
+    width: 30px;
+    height: 30px;
+    font-size: 0.85rem;
+  }
+
+  #top-right-btns {
+    top: 10px;
+    right: 10px;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 150px;
+  }
+
+  #stop-btn,
+  #restart-btn {
+    font-size: 0.52rem;
+    padding: 5px 8px;
+    letter-spacing: 0.04em;
+  }
+
+  #score-display {
+    top: auto;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  #score-value {
+    font-size: 1.6rem;
+  }
+
+  #report-card {
+    min-width: 0;
+    width: min(92vw, 400px);
+    padding: 20px 18px;
+    gap: 12px;
+  }
+
+  #report-title {
+    font-size: 1.1rem;
+  }
+
+  #report-score-line {
+    font-size: 0.95rem;
+  }
+
+  #report-table {
+    font-size: 0.68rem;
+  }
+
+  #report-table th,
+  #report-table td {
+    padding: 5px 8px 5px 0;
+  }
+
+  #report-params-line {
+    font-size: 0.58rem;
+    line-height: 1.6;
+  }
+
+  #report-play-again {
+    font-size: 0.7rem;
+    padding: 10px 20px;
+  }
+
+  .btn-mode {
+    padding: 16px 8px;
+    gap: 4px;
+  }
+
+  .btn-mode-icon { font-size: 1.4rem; }
+  .btn-mode-label { font-size: 0.85rem; }
+
+  #param-card {
+    padding: 24px 20px;
+    gap: 16px;
+  }
+
+  #param-modal-title { font-size: 1.1rem; }
+
+  .param-ctrl-row button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .param-ctrl-row > span { font-size: 0.9rem; }
+
+  #param-start-btn {
+    font-size: 0.8rem;
+    padding: 14px;
+  }
+}
