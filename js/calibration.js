@@ -97,6 +97,17 @@ export function getSampleCount(cls) {
   return (calState.samplesByClass[cls] || []).length;
 }
 
+export function discardLastSample() {
+  const cls = CALIBRATION_CLASSES[calState.currentClassIdx];
+  if (cls === 'Background') return;
+  const arr = calState.samplesByClass[cls];
+  if (arr && arr.length > 0) {
+    arr.pop();
+    console.log(`[calibration] ${cls}: discarded last sample, ${arr.length} remain`);
+    updateCalibrationUI();
+  }
+}
+
 function updateCalibrationUI() {
   const currentCls = CALIBRATION_CLASSES[calState.currentClassIdx];
 
@@ -125,6 +136,13 @@ function updateCalibrationUI() {
   // Show Background record button only when Background is active
   const bgBtn = document.getElementById('cal-record-bg-btn');
   if (bgBtn) bgBtn.style.display = currentCls === 'Background' ? 'inline-block' : 'none';
+
+  // Show discard button when current class has >= 1 sample (not Background)
+  const discardBtn = document.getElementById('cal-discard-btn');
+  if (discardBtn) {
+    const hasAnySamples = currentCls !== 'Background' && getSampleCount(currentCls) > 0;
+    discardBtn.style.display = hasAnySamples ? 'inline-block' : 'none';
+  }
 
   // Show advance button if current class has >= SOFT_FLOOR samples (and not last class)
   const isLastClass = calState.currentClassIdx === CALIBRATION_CLASSES.length - 1;

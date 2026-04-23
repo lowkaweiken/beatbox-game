@@ -168,6 +168,22 @@
   color: #000;
 }
 
+#cal-discard-btn {
+  background: transparent;
+  border: 1px solid #ff3c6e;
+  color: #ff3c6e;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 10px 20px;
+  cursor: pointer;
+  letter-spacing: 0.12em;
+}
+
+#cal-discard-btn:hover {
+  background: #ff3c6e;
+  color: #000;
+}
+
 #cal-advance-btn {
   background: transparent;
   border: 1px solid var(--accent3);

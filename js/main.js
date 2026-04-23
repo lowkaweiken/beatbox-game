@@ -1,6 +1,6 @@
 import { startMode, startMicTest, stopListening, startCalibrationFlow, recordBackground } from './audio.js';
 import { restartGame, startTimedGame, playAgain, adjustLatency, adjustBPM, adjustCooldown, adjustHitbox } from './game.js';
-import { finishCalibration, recalibrate, advanceClass } from './calibration.js';
+import { finishCalibration, recalibrate, advanceClass, discardLastSample } from './calibration.js';
 import { loadCentroids } from './storage.js';
 import { state } from './state.js';
 
@@ -36,6 +36,8 @@ document.getElementById('btn-recalibrate').addEventListener('click', async () =>
 });
 
 document.getElementById('cal-record-bg-btn').addEventListener('click', recordBackground);
+
+document.getElementById('cal-discard-btn').addEventListener('click', discardLastSample);
 
 document.getElementById('cal-advance-btn').addEventListener('click', advanceClass);
 

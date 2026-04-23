@@ -59,6 +59,6 @@ export const MEL_FB = (() => {
 // Calibration constants for per-user personalization
 export const CALIBRATION_CLASSES = ['Kick', 'Hihat', 'Snare', 'Background'];
 export const CALIBRATION_SAMPLES_PER_CLASS = 10;
-export const CALIBRATION_SOFT_FLOOR = 5;
+export const CALIBRATION_SOFT_FLOOR = 10;
 export const CALIBRATION_TEMPERATURE = 0.1;
 export const EMBEDDING_DIM = 64;

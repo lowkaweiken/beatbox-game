@@ -503,6 +503,7 @@ export function playAgain() {
 
 // Exposed for audio.js: sets up for timed mode before game starts
 export function enterTimedSetup() {
+  game.mode  = 'timed';
   game.phase = 'setup';
   startGame();
   syncParamModal();
