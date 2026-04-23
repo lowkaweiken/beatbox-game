@@ -1,0 +1,18 @@
+{
+  "words": [
+    "Background",
+    "Hihat",
+    "Kick",
+    "Snare"
+  ],
+  "sample_rate": 44100,
+  "duration_ms": 200,
+  "n_mels": 64,
+  "n_fft": 1024,
+  "hop_length": 256,
+  "input_shape": [
+    64,
+    35,
+    1
+  ]
+}

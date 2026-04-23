@@ -127,6 +127,32 @@
     #capture-bg-btn:disabled { background: #333; color: #555; cursor: not-allowed; }
     #export-btn { background: #2471a3; color: #fff; }
     #export-btn:disabled { background: #333; color: #555; cursor: not-allowed; }
+
+    #guide-zone-wrap {
+      position: relative; height: 6px; background: transparent;
+      margin-top: -10px; margin-bottom: 10px;
+    }
+    #guide-zone {
+      position: absolute; top: 0; height: 100%;
+      background: rgba(41,128,185,0.35);
+      border-left: 2px solid #2980b9; border-right: 2px solid #2980b9;
+      border-radius: 2px; transition: left 0.25s, width 0.25s;
+    }
+    #class-guide {
+      background: #1a1a1a; border-left: 3px solid #2980b9;
+      border-radius: 0 6px 6px 0; padding: 8px 12px;
+      font-size: 0.85rem; color: #aaa; margin-bottom: 12px; min-height: 36px;
+    }
+    #waveform-canvas {
+      display: block; width: 100%; height: 60px;
+      border-radius: 8px; border: 3px solid #333;
+      background: #1a1a1a; margin-bottom: 10px;
+    }
+    #rejection-bar {
+      font-size: 0.82rem; color: #888; margin-bottom: 14px;
+      padding: 6px 10px; background: #1a1a1a; border-radius: 6px;
+    }
+    #rejection-bar strong { color: #e74c3c; }
   </style>
 </head>
 <body>
@@ -153,7 +179,17 @@
       <div id="volume-bar"></div>
     </div>
 
+    <div id="guide-zone-wrap">
+      <div id="guide-zone"></div>
+    </div>
+    <div id="class-guide">
+      <span id="guide-text">Select a class to see recording tips.</span>
+    </div>
+
     <div id="status">Ready — select a class, then make sounds.</div>
+
+    <canvas id="waveform-canvas" width="440" height="60"></canvas>
+    <div id="rejection-bar">Rejected: <strong id="rejection-count">0</strong></div>
 
     <button id="capture-bg-btn" style="display:none" disabled>⏺ Capture Background</button>
 
@@ -173,7 +209,7 @@
   </div>
 
   <script>
-    const SLICE_MS = 150;
+    const SLICE_MS = 200;
     const BG_CAPTURE_MS = 2000;
     const COOLDOWN_MS = 350;
 
@@ -190,6 +226,9 @@
     let samples = [];
     let counts = { Kick: 0, Hihat: 0, Snare: 0, Background: 0 };
     let lastWavBlob = null;
+    let rejectedCount = 0;
+    const RMS_MIN = 0.008;
+    const PEAK_MAX = 0.95;
 
     const startBtn = document.getElementById('start-btn');
     const controls = document.getElementById('controls');
@@ -221,6 +260,7 @@
         btn.classList.add('selected');
         selectedLabel = btn.dataset.label;
         updateModeUI();
+        updateGuideForClass(selectedLabel);
       });
     });
 
@@ -277,6 +317,19 @@
               for (const chunk of recordingBuffer) { merged.set(chunk, off); off += chunk.length; }
 
               const slice = merged.slice(0, sliceSamples);
+
+              const stats = computeSliceStats(slice);
+              const validation = validateSlice(stats);
+              drawWaveform(slice, validation.passed);
+
+              if (!validation.passed) {
+                rejectedCount++;
+                document.getElementById('rejection-count').textContent = rejectedCount;
+                setStatus('✗ ' + validation.reason);
+                setTimeout(() => { onsetCooldown = false; }, COOLDOWN_MS);
+                return;
+              }
+
               const wav = encodeWAV(slice, sampleRate);
 
               samples.push({ label: capturedLabel, wav });
@@ -299,6 +352,7 @@
         startBtn.classList.add('active');
         controls.style.display = 'block';
         updateModeUI();
+        updateGuideForClass(selectedLabel);
       } catch (err) {
         setStatus('Mic error: ' + err.message);
       }
@@ -357,23 +411,34 @@
         let off = 0;
         for (const chunk of recordingBuffer) { merged.set(chunk, off); off += chunk.length; }
 
-        // Split into 150ms chunks
+        // Split into 150ms chunks, validate each
         const numChunks = Math.floor(merged.length / sliceSamples);
-        let lastWav = null;
+        let lastWav = null, lastSlice = null, savedCount = 0;
         for (let i = 0; i < numChunks; i++) {
           const slice = merged.slice(i * sliceSamples, (i + 1) * sliceSamples);
+          const stats = computeSliceStats(slice);
+          if (stats.peak > PEAK_MAX) { rejectedCount++; continue; }
           const wav = encodeWAV(slice, sampleRate);
           samples.push({ label: 'Background', wav });
           counts['Background']++;
+          savedCount++;
           lastWav = wav;
+          lastSlice = slice;
         }
 
+        document.getElementById('rejection-count').textContent = rejectedCount;
         document.getElementById('count-Background').textContent = counts['Background'];
-        lastWavBlob = new Blob([lastWav], { type: 'audio/wav' });
-        playLastBtn.disabled = false;
-        discardLastBtn.disabled = false;
-        exportBtn.disabled = false;
-        setStatus(`✓ Background: +${numChunks} samples (total ${counts['Background']})`);
+        if (lastSlice) drawWaveform(lastSlice, true);
+
+        if (lastWav) {
+          lastWavBlob = new Blob([lastWav], { type: 'audio/wav' });
+          playLastBtn.disabled = false;
+          discardLastBtn.disabled = false;
+          exportBtn.disabled = false;
+          setStatus(`✓ Background: +${savedCount} saved, ${numChunks - savedCount} rejected (total ${counts['Background']})`);
+        } else {
+          setStatus(`✗ All ${numChunks} chunks rejected — check sensitivity`);
+        }
       }, BG_CAPTURE_MS);
     });
 
@@ -421,6 +486,58 @@
       a.click();
       URL.revokeObjectURL(url);
       setStatus(`Downloaded beatbox_samples.zip (${samples.length} samples)`);
+    }
+
+    function computeSliceStats(slice) {
+      var sum = 0, peak = 0;
+      for (var i = 0; i < slice.length; i++) {
+        var abs = Math.abs(slice[i]);
+        sum += slice[i] * slice[i];
+        if (abs > peak) peak = abs;
+      }
+      return { rms: Math.sqrt(sum / slice.length), peak: peak };
+    }
+
+    function validateSlice(stats) {
+      if (stats.rms < RMS_MIN)
+        return { passed: false, reason: 'Too quiet — misfire rejected (RMS ' + stats.rms.toFixed(4) + ')' };
+      if (stats.peak > PEAK_MAX)
+        return { passed: false, reason: 'Clipping — back off mic (peak ' + stats.peak.toFixed(3) + ')' };
+      return { passed: true, reason: '' };
+    }
+
+    function drawWaveform(slice, passed) {
+      const canvas = document.getElementById('waveform-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#1a1a1a'; ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = '#333'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+      ctx.strokeStyle = passed ? '#27ae60' : '#e74c3c'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      const step = slice.length / W;
+      for (let x = 0; x < W; x++) {
+        const y = (1 - slice[Math.floor(x * step)]) * H / 2;
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      canvas.style.borderColor = passed ? '#27ae60' : '#e74c3c';
+    }
+
+    const CLASS_GUIDES = {
+      Kick:       { text: "Unvocalized 'B' — lips pressed, burst of air. No voice.",        min: 30, max: 70 },
+      Hihat:      { text: "Pure 'TS' — tongue tip + outward air. No tongue CLICK.",          min: 20, max: 50 },
+      Snare:      { text: "Inward 'K' — sharp tongue click + inward breath. Keep it tight.", min: 40, max: 80 },
+      Background: { text: "Silent & still. No coughs, taps, or breath noise.",                min: 0,  max: 10 },
+    };
+
+    function updateGuideForClass(label) {
+      const g = CLASS_GUIDES[label]; if (!g) return;
+      document.getElementById('guide-text').textContent = g.text;
+      const z = document.getElementById('guide-zone');
+      z.style.left = g.min + '%'; z.style.width = (g.max - g.min) + '%';
     }
 
     function encodeWAV(pcm, sampleRate) {
