@@ -169,3 +169,37 @@ body { overflow-x: hidden; overflow-y: auto; }
 | `game.latencyOffsetMs` | game object / HUD | Classifier latency compensation |
 | `DISPLAY_THRESHOLD` | CONFIG | Min confidence to register (default 0.75) |
 | `SCORE_TIERS[*].maxPx` | game section | Hit window sizes per tier |
+
+---
+
+## This Session — Hihat Classification + Miss Detection Fix
+
+### Hihat vs Snare Confusion
+
+Outward hihat ("ts") consistently misclassified as K snare despite 150 outward hihat training samples. Inward hihat was more reliable.
+
+**Root cause:** Outward hihat and K snare overlap significantly in mel spectrogram space (both are short high-frequency transients). The CNN embedding space didn't cleanly separate them — more samples of similar-looking spectrograms can't fix this. The centroid classifier (per-user calibration) also can't fix confusion that exists inside the embedding space.
+
+**Tried:** Retrained with 128 mel bins (`new_model 23042026-2345/`) hoping finer frequency resolution would help — was worse than the 64-mel model.
+
+**Resolution:** Reverted to old 64-mel model. When switching models, both `js/model.js` (fetch path) and `js/config.js` (`N_MELS`) must match — mismatch causes the model to silently receive wrong-shaped input and produce garbage output.
+
+**Practical recommendation:** Use inward hihat technique during gameplay; it is acoustically more distinct from K snare and works reliably.
+
+### Miss Detection Bug
+
+**Bug:** With high hitbox (280px) and latency offset (150ms) at BPM 200, missed boxes were not counted in the end-of-game report — misses showed 0.
+
+**Root cause:** The miss boundary is `judgeX - MISS_THRESHOLD - latencyPx`. At large values these combine to push the boundary off-screen (e.g. -176px). The box cleanup loop removes boxes at `x < -140px` — before they ever cross the miss boundary.
+
+**Fix:** Count a box as missed at cleanup time if it was neither scored nor previously marked missed. Added to both horizontal and vertical cleanup loops in `js/game.js`.
+
+```js
+while (game.boxes.length && game.boxes[0].x < -game.boxSize * 2) {
+  const box = game.boxes.shift();
+  if (!box.scored && !box.missed) {
+    if (game.stats[box.label]) game.stats[box.label].miss++;
+    game.verdict = { text: 'MISSED!', color: '#ff3c6e', expiresAt: Date.now() + 750 };
+  }
+}
+```

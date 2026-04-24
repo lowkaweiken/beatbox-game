@@ -202,3 +202,41 @@ function syncParamModal() {
   setEl('modal-cooldown-display', game.cooldownMs + 'ms');
 }
 ```
+
+---
+
+## 13. Miss boundary can go off-screen with large hitbox + latency, causing misses to never register
+
+**Problem:** Miss detection condition is `box.x < judgeX - MISS_THRESHOLD - latencyPx`. With a large hitbox (280px) and significant latency offset (150ms at BPM 200 ≈ 120px), the combined offset can exceed `judgeX`, pushing the miss boundary off-screen (e.g. -176px). The box cleanup loop removes boxes at `x < -boxSize * 2` (-140px) first — before the miss boundary is ever crossed. Result: missed boxes are silently discarded with no miss count.
+
+**Fix:** Count a box as missed at cleanup time if it was neither scored nor marked missed. This is always correct regardless of settings.
+
+```js
+while (game.boxes.length && game.boxes[0].x < -game.boxSize * 2) {
+  const box = game.boxes.shift();
+  if (!box.scored && !box.missed) {
+    if (game.stats[box.label]) game.stats[box.label].miss++;
+    game.verdict = { text: 'MISSED!', color: '#ff3c6e', expiresAt: Date.now() + 750 };
+  }
+}
+```
+
+Apply the same pattern to the vertical cleanup loop.
+
+---
+
+## 14. Switching models requires updating both the fetch path AND N_MELS in config
+
+**Problem:** When switching from a 64-mel model to a 128-mel model (or back), `N_MELS` in `js/config.js` and the fetch path in `js/model.js` must be changed together. If they diverge, the mel spectrogram shape fed to the model is wrong — TF.js won't throw an error (conv kernel shapes are independent of input height), but inference output is garbage.
+
+**Fix:** Always treat `(model path, N_MELS)` as a coupled pair. Verify `metadata.json` in the model folder before swapping.
+
+---
+
+## 15. More mel bins don't automatically improve inter-class separability
+
+**Problem:** Increasing N_MELS from 64 to 128 in hopes of better outward-hihat vs K-snare discrimination made classification worse, not better.
+
+**Reason:** If two sounds genuinely overlap in spectral/temporal content (both are short high-frequency transients), finer frequency resolution just gives the model more dimensions of overlap to be confused by — it doesn't create separation that wasn't there acoustically. The model also needs to be retrained from scratch on the new resolution, and 128-mel models require more data and capacity to train well.
+
+**Fix:** Increasing mel bins is only useful when the distinguishing feature is in fine spectral detail. For timing/transient differences between classes, it rarely helps. If sounds are spectrally similar, change the technique (inward vs outward hihat) or increase CNN depth — not the spectrogram resolution.
